@@ -52,6 +52,7 @@ jobs:
 
       - name: Upload Plan Logs
         if: always()
+        working-directory: envs/qa
         run: |
           gcloud storage cp terraform-plan.log gs://gitops-infra-tflogs-qa/plan-logs/${{ github.run_id }}.log
 
