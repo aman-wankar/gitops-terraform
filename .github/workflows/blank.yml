@@ -53,7 +53,7 @@ jobs:
       - name: Upload Plan Logs
         if: always()
         run: |
-          gsutil cp terraform-plan.log gs://gitops-infra-tflogs-qa/plan-logs/${{ github.run_id }}.log
+          gcloud storage cp terraform-plan.log gs://gitops-infra-tflogs-qa/plan-logs/${{ github.run_id }}.log
 
   # ---------- CD: Apply ----------
   terraform-cd:
@@ -90,6 +90,6 @@ jobs:
         run: terraform apply -auto-approve -input=false | tee terraform-apply.log
 
       - name: Upload Apply Logs
-        if: always()
+        if: github.event_name == 'push' && always()
         run: |
-          gsutil cp terraform-apply.log gs://gitops-infra-tflogs-qa/apply-logs/${{ github.run_id }}.log
+          gcloud storage cp terraform-apply.log gs://gitops-infra-tflogs-qa/apply-logs/${{ github.run_id }}.log
