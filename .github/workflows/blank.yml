@@ -49,8 +49,8 @@ jobs:
         id: plan
         working-directory: envs/qa
         run: |
-          ls -lha
           terraform plan -input=false -no-color | tee terraform-plan.log
+          ls -lha
 
       - name: Upload Plan Logs
         if: always()
