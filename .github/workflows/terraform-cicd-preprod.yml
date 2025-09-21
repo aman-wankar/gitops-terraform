@@ -1,20 +1,20 @@
-name: Terraform QA CI/CD
+name: Terraform PREPROD CI/CD
 
 on:
   pull_request:
     branches: [main]
     paths:
-      - "envs/qa/**"
+      - "envs/preprod/**"
   push:
     branches: [main]
     paths:
-      - "envs/qa/**"
+      - "envs/preprod/**"
   workflow_dispatch:
 
 jobs:
   # ---------- CI: Validate & Plan ----------
   terraform-ci:
-    name: Terraform CI (Plan)
+    name: Terraform CI (PREPROD)
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -28,8 +28,8 @@ jobs:
       - name: Authenticate to Google Cloud (WIF)
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER_QA }}
-          service_account: ${{ secrets.WIF_SA_QA }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER_PREPROD }}
+          service_account: ${{ secrets.WIF_SA_PREPROD }}
           token_format: access_token
 
       - name: Set up Terraform
@@ -38,30 +38,28 @@ jobs:
           terraform_version: 1.9.5
 
       - name: Terraform Init
-        working-directory: envs/qa
+        working-directory: envs/preprod
         run: terraform init -input=false
 
       - name: Terraform Validate
-        working-directory: envs/qa
+        working-directory: envs/preprod
         run: terraform validate
 
       - name: Terraform Plan
         id: plan
-        working-directory: envs/qa
+        working-directory: envs/preprod
         run: |
           terraform plan -input=false -no-color | tee terraform-plan.log
-          ls -lha
 
       - name: Upload Plan Logs
         if: always()
-        working-directory: envs/qa
+        working-directory: envs/preprod
         run: |
-          ls -lha
-          gcloud storage cp terraform-plan.log gs://gitops-infra-tflogs-qa/plan-logs/${{ github.run_id }}.log
+          gcloud storage cp terraform-plan.log gs://gitops-infra-tflogs-preprod/plan-logs/${{ github.run_id }}.log
 
   # ---------- CD: Apply ----------
   terraform-cd:
-    name: Terraform CD (Apply)
+    name: Terraform CD (PREPROD)
     runs-on: ubuntu-latest
     needs: terraform-ci
     if: github.event_name == 'push'
@@ -76,8 +74,8 @@ jobs:
       - name: Authenticate to Google Cloud (WIF)
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.WIF_PROVIDER_QA }}
-          service_account: ${{ secrets.WIF_SA_QA }}
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER_PREPROD }}
+          service_account: ${{ secrets.WIF_SA_PREPROD }}
           token_format: access_token
 
       - name: Set up Terraform
@@ -86,14 +84,14 @@ jobs:
           terraform_version: 1.9.5
 
       - name: Terraform Init
-        working-directory: envs/qa
+        working-directory: envs/preprod
         run: terraform init -input=false
 
       - name: Terraform Apply
-        working-directory: envs/qa
+        working-directory: envs/preprod
         run: terraform apply -auto-approve -input=false | tee terraform-apply.log
 
       - name: Upload Apply Logs
         if: github.event_name == 'push' && always()
         run: |
-          gcloud storage cp terraform-apply.log gs://gitops-infra-tflogs-qa/apply-logs/${{ github.run_id }}.log
+          gcloud storage cp terraform-apply.log gs://gitops-infra-tflogs-preprod/apply-logs/${{ github.run_id }}.log

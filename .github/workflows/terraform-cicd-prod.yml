@@ -1,0 +1,97 @@
+name: Terraform PROD CI/CD
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "envs/prod/**"
+  push:
+    branches: [main]
+    paths:
+      - "envs/prod/**"
+  workflow_dispatch:
+
+jobs:
+  # ---------- CI: Validate & Plan ----------
+  terraform-ci:
+    name: Terraform CI (PROD)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER_PROD }}
+          service_account: ${{ secrets.WIF_SA_PROD }}
+          token_format: access_token
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: Terraform Init
+        working-directory: envs/prod
+        run: terraform init -input=false
+
+      - name: Terraform Validate
+        working-directory: envs/prod
+        run: terraform validate
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: envs/prod
+        run: |
+          terraform plan -input=false -no-color | tee terraform-plan.log
+
+      - name: Upload Plan Logs
+        if: always()
+        working-directory: envs/prod
+        run: |
+          gcloud storage cp terraform-plan.log gs://gitops-infra-tflogs-prod/plan-logs/${{ github.run_id }}.log
+
+  # ---------- CD: Apply ----------
+  terraform-cd:
+    name: Terraform CD (PROD)
+    runs-on: ubuntu-latest
+    needs: terraform-ci
+    if: github.event_name == 'push'
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER_PROD }}
+          service_account: ${{ secrets.WIF_SA_PROD }}
+          token_format: access_token
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.5
+
+      - name: Terraform Init
+        working-directory: envs/prod
+        run: terraform init -input=false
+
+      - name: Terraform Apply
+        working-directory: envs/prod
+        run: terraform apply -auto-approve -input=false | tee terraform-apply.log
+
+      - name: Upload Apply Logs
+        if: github.event_name == 'push' && always()
+        run: |
+          gcloud storage cp terraform-apply.log gs://gitops-infra-tflogs-prod/apply-logs/${{ github.run_id }}.log
