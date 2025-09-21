@@ -14,7 +14,7 @@ on:
 jobs:
   # ---------- CI: Validate & Plan ----------
   terraform-ci:
-    name: Terraform CI (QA)
+    name: Terraform CI (Plan)
     runs-on: ubuntu-latest
     permissions:
       contents: read
